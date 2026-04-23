@@ -4,53 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2P Secure Chat</title>
-    <!-- Import PeerJS -->
-    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
-    <style>
-        /* Professional CSS Reset & Variables */
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
-        :root { --primary: #007AFF; --bg: #f3f4f6; --surface: #ffffff; --text: #1f2937; --border: #e5e7eb; }
-        
-        body { background-color: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; color: var(--text); }
-        
-        /* App Container */
-        .app-container { width: 100%; max-width: 450px; height: 90vh; background: var(--surface); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        
-        /* Header */
-        .header { background: var(--primary); color: white; padding: 18px; text-align: center; font-weight: 600; font-size: 1.1rem; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
-        
-        /* Screens */
-        #setup-screen { padding: 25px; display: flex; flex-direction: column; gap: 20px; flex: 1; overflow-y: auto; }
-        #chat-screen { display: none; flex-direction: column; flex: 1; background: #f9fafb; overflow: hidden; }
-        
-        /* Setup Elements */
-        .card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
-        .card h3 { font-size: 1rem; margin-bottom: 12px; color: #374151; }
-        .id-box { background: #f3f4f6; padding: 12px; border-radius: 8px; text-align: center; font-family: monospace; font-size: 1.2rem; font-weight: bold; color: var(--primary); cursor: pointer; border: 1px dashed #9ca3af; }
-        .id-box:hover { background: #e5e7eb; }
-        
-        /* Inputs & Buttons */
-        input[type="text"] { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 8px; outline: none; font-size: 1rem; transition: border 0.2s; background: #f9fafb; }
-        input[type="text"]:focus { border-color: var(--primary); background: white; }
-        button { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; width: 100%; margin-top: 10px; transition: background 0.2s; }
-        button:hover { background: #0056b3; }
-        button:disabled { background: #9ca3af; cursor: not-allowed; }
-        
-        /* Chat Area */
-        #messages-container { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-        .message { max-width: 75%; padding: 12px 16px; border-radius: 18px; font-size: 0.95rem; line-height: 1.4; position: relative; word-wrap: break-word; }
-        .msg-you { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .msg-friend { background: #e5e7eb; color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
-        .msg-system { background: transparent; color: #6b7280; font-size: 0.85rem; text-align: center; align-self: center; font-style: italic; }
-        
-        .input-area { padding: 15px; background: white; border-top: 1px solid var(--border); display: flex; gap: 10px; }
-        .input-area input { flex: 1; margin: 0; }
-        .input-area button { width: auto; margin: 0; padding: 0 25px; }
-        
-        /* Connection Status */
-        #status-dot { display: inline-block; width: 10px; height: 10px; background: #f59e0b; border-radius: 50%; margin-right: 8px; }
-        .status-ready { background: #10b981 !important; }
-    </style>
+    
+    <!-- Link external CSS -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Load PeerJS and external Script (defer ensures they load in order) -->
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
+    <script src="script.js" defer></script>
 </head>
 <body>
 
@@ -63,8 +23,8 @@
         <div id="setup-screen">
             <div class="card">
                 <h3>Your Connection ID</h3>
-                <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 10px;">Share this ID with your friend.</p>
-                <div class="id-box" id="my-id" onclick="copyId()" title="Click to copy">Generating...</div>
+                <p class="subtitle">Share this ID with your friend.</p>
+                <div class="id-box" id="my-id" title="Click to copy">Generating...</div>
             </div>
 
             <div class="card">
@@ -76,9 +36,7 @@
 
         <!-- SCREEN 2: Chat Interface -->
         <div id="chat-screen">
-            <div id="messages-container">
-                <!-- Messages go here -->
-            </div>
+            <div id="messages-container"></div>
             
             <div class="input-area">
                 <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
@@ -87,102 +45,5 @@
         </div>
     </div>
 
-    <script>
-        // DOM Elements
-        const screens = { setup: document.getElementById('setup-screen'), chat: document.getElementById('chat-screen') };
-        const els = {
-            myId: document.getElementById('my-id'), friendId: document.getElementById('friend-id'),
-            connectBtn: document.getElementById('connect-btn'), sendBtn: document.getElementById('send-btn'),
-            msgInput: document.getElementById('message-input'), msgContainer: document.getElementById('messages-container'),
-            statusDot: document.getElementById('status-dot')
-        };
-
-        // Initialize PeerJS
-        const peer = new Peer(); 
-        let chatConnection;
-
-        // 1. PeerJS generated our ID
-        peer.on('open', (id) => {
-            els.myId.innerText = id;
-            els.connectBtn.disabled = false;
-            els.statusDot.classList.add('status-ready');
-        });
-
-        // 2. Error handling (Fixes the "silent failure" issue)
-        peer.on('error', (err) => {
-            alert(`Connection Error: ${err.type}`);
-            console.error(err);
-        });
-
-        // 3. Listen for incoming connections
-        peer.on('connection', (conn) => {
-            chatConnection = conn;
-            chatConnection.on('open', () => openChatInterface());
-        });
-
-        // 4. Initiate connection to friend
-        els.connectBtn.onclick = () => {
-            const friendId = els.friendId.value.trim();
-            if (!friendId) return alert("Please enter an ID");
-            
-            els.connectBtn.innerText = "Connecting...";
-            chatConnection = peer.connect(friendId);
-            
-            chatConnection.on('open', () => openChatInterface());
-        };
-
-        // 5. Open chat UI and setup message listeners
-        function openChatInterface() {
-            screens.setup.style.display = 'none';
-            screens.chat.style.display = 'flex';
-            addMessage("Connected to peer securely.", 'msg-system');
-
-            // Listen for incoming messages
-            chatConnection.on('data', (data) => {
-                addMessage(data, 'msg-friend');
-            });
-            
-            // Handle disconnection
-            chatConnection.on('close', () => {
-                addMessage("Friend disconnected.", 'msg-system');
-                els.msgInput.disabled = true;
-                els.sendBtn.disabled = true;
-            });
-        }
-
-        // 6. Send message logic
-        function sendMessage() {
-            const text = els.msgInput.value.trim();
-            if (!text) return;
-
-            chatConnection.send(text);       // Send data to peer
-            addMessage(text, 'msg-you');     // Add to own screen
-            els.msgInput.value = '';         // Clear input
-        }
-
-        // Event listeners for sending
-        els.sendBtn.onclick = sendMessage;
-        els.msgInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-
-        // UI Helper: Render message bubble
-        function addMessage(text, typeClass) {
-            const div = document.createElement('div');
-            div.className = `message ${typeClass}`;
-            div.innerText = text;
-            els.msgContainer.appendChild(div);
-            els.msgContainer.scrollTop = els.msgContainer.scrollHeight;
-        }
-
-        // UI Helper: Click ID to copy
-        function copyId() {
-            const idText = els.myId.innerText;
-            if (idText === "Generating...") return;
-            navigator.clipboard.writeText(idText).then(() => {
-                alert("ID Copied to clipboard!");
-            });
-        }
-    </script>
 </body>
 </html>
