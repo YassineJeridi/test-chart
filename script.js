@@ -1,10 +1,10 @@
 // ============================================================
 //  CONFIGURATION
 // ============================================================
-const BOT_TOKEN = '8793653888:AAGx1Uz6KpcSR9ANTxQ5sywonfPWWVNrEdk';
-const CHAT_ID   = '7127263879';
-const API       = `https://api.telegram.org/bot${BOT_TOKEN}`;
-const POLL_INTERVAL = 3000;
+const BOT_TOKEN     = '8793653888:AAGx1Uz6KpcSR9ANTxQ5sywonfPWWVNrEdk';
+const CHAT_ID       = '7127263879';
+const API           = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const POLL_INTERVAL = 1500; // 1.5 seconds — fast but not spammy
 
 // ============================================================
 //  STATE
@@ -13,6 +13,7 @@ let myId         = '';
 let friendId     = '';
 let pollTimer    = null;
 let lastUpdateId = 0;
+let isPolling    = false;
 
 // ============================================================
 //  DOM
@@ -20,44 +21,42 @@ let lastUpdateId = 0;
 document.addEventListener('DOMContentLoaded', () => {
 
     const els = {
-        myIdInput:          document.getElementById('my-id-input'),
-        friendIdInput:      document.getElementById('friend-id-input'),
-        startBtn:           document.getElementById('start-btn'),
-        setupScreen:        document.getElementById('setup-screen'),
-        chatScreen:         document.getElementById('chat-screen'),
-        chatTitle:          document.getElementById('chat-title'),
-        messagesContainer:  document.getElementById('messages-container'),
-        messageInput:       document.getElementById('message-input'),
-        sendBtn:            document.getElementById('send-btn'),
-        disconnectBtn:      document.getElementById('disconnect-btn'),
-        statusDot:          document.getElementById('status-dot')
+        myIdInput:         document.getElementById('my-id-input'),
+        friendIdInput:     document.getElementById('friend-id-input'),
+        startBtn:          document.getElementById('start-btn'),
+        setupScreen:       document.getElementById('setup-screen'),
+        chatScreen:        document.getElementById('chat-screen'),
+        chatTitle:         document.getElementById('chat-title'),
+        messagesContainer: document.getElementById('messages-container'),
+        messageInput:      document.getElementById('message-input'),
+        sendBtn:           document.getElementById('send-btn'),
+        disconnectBtn:     document.getElementById('disconnect-btn'),
+        statusDot:         document.getElementById('status-dot')
     };
 
     // --------------------------------------------------------
-    //  START CHAT — First sync offset, THEN start polling
+    //  START — Sync offset first, THEN open chat
     // --------------------------------------------------------
     els.startBtn.onclick = () => {
         myId     = els.myIdInput.value.trim().toLowerCase();
         friendId = els.friendIdInput.value.trim().toLowerCase();
 
         if (!myId)     return alert('Please enter your ID');
-        if (!friendId) return alert('Please enter your friend\'s ID');
+        if (!friendId) return alert("Please enter your friend's ID");
 
-        els.startBtn.innerText    = 'Connecting...';
-        els.startBtn.disabled     = true;
+        els.startBtn.innerText = 'Connecting...';
+        els.startBtn.disabled  = true;
 
-        // FIX: Get the latest update ID FIRST before opening the chat
-        // This ensures we only receive NEW messages, not old ones
-        fetch(`${API}/getUpdates`)
-        .then(res => res.json())
+        // Step 1: Get the LATEST update ID so we skip all historical messages
+        fetch(`${API}/getUpdates?limit=1&offset=-1`)
+        .then(r => r.json())
         .then(data => {
+            // FIX: Set lastUpdateId to the most recent message in Telegram
             if (data.ok && data.result.length > 0) {
-                // Set lastUpdateId to the most recent message so we skip all old ones
-                const updates = data.result;
-                lastUpdateId = updates[updates.length - 1].update_id;
+                lastUpdateId = data.result[data.result.length - 1].update_id;
             }
 
-            // Now safe to open the chat
+            // Step 2: Now open the chat
             els.setupScreen.style.display = 'none';
             els.chatScreen.style.display  = 'flex';
             els.chatTitle.innerText       = `Chatting with: ${friendId}`;
@@ -65,8 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
             els.startBtn.innerText        = 'Start Chat';
             els.startBtn.disabled         = false;
 
-            addMessage('Chat started. Waiting for messages...', 'msg-system');
-            startPolling(els);
+            addMessage('Chat ready. Say something!', 'msg-system');
+
+            // Step 3: Start polling for new messages
+            isPolling = true;
+            schedulePoll(els);
         })
         .catch(() => {
             alert('Could not connect to Telegram. Check your internet.');
@@ -82,6 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = els.messageInput.value.trim();
         if (!text) return;
 
+        // Show the message immediately on sender's screen
+        addMessage(text, 'msg-you');
+        els.messageInput.value = '';
+
         const payload = `FROM:${myId}|TO:${friendId}|MSG:${text}`;
 
         fetch(`${API}/sendMessage`, {
@@ -89,20 +95,15 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: CHAT_ID, text: payload })
         })
-        .then(res => res.json())
+        .then(r => r.json())
         .then(data => {
-            if (data.ok) {
-                addMessage(text, 'msg-you');
-                els.messageInput.value = '';
-            } else {
-                alert('Failed to send message. Check your bot token.');
-            }
+            if (!data.ok) alert('Failed to send. Check your bot token.');
         })
-        .catch(() => alert('Network error. Are you connected to the internet?'));
+        .catch(() => alert('Network error. Are you connected?'));
     }
 
     els.sendBtn.onclick = sendMessage;
-    els.messageInput.addEventListener('keypress', (e) => {
+    els.messageInput.addEventListener('keypress', e => {
         if (e.key === 'Enter') sendMessage();
     });
 
@@ -110,7 +111,8 @@ document.addEventListener('DOMContentLoaded', () => {
     //  DISCONNECT
     // --------------------------------------------------------
     els.disconnectBtn.onclick = () => {
-        clearInterval(pollTimer);
+        isPolling = false;
+        clearTimeout(pollTimer);
         els.chatScreen.style.display    = 'none';
         els.setupScreen.style.display   = 'flex';
         els.messagesContainer.innerHTML = '';
@@ -119,19 +121,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --------------------------------------------------------
-    //  POLLING
+    //  POLLING — Recursive setTimeout prevents overlapping calls
     // --------------------------------------------------------
-    function startPolling(els) {
-        pollTimer = setInterval(() => fetchMessages(els), POLL_INTERVAL);
+    function schedulePoll(els) {
+        if (!isPolling) return;
+        pollTimer = setTimeout(() => {
+            fetchMessages(els).finally(() => schedulePoll(els));
+        }, POLL_INTERVAL);
     }
 
     function fetchMessages(els) {
-        fetch(`${API}/getUpdates?offset=${lastUpdateId + 1}`)
-        .then(res => res.json())
+        return fetch(`${API}/getUpdates?offset=${lastUpdateId + 1}&limit=10`)
+        .then(r => r.json())
         .then(data => {
             if (!data.ok || data.result.length === 0) return;
 
             data.result.forEach(update => {
+                // Always advance offset to avoid re-reading
                 if (update.update_id > lastUpdateId) {
                     lastUpdateId = update.update_id;
                 }
@@ -144,13 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const to    = parts[1]?.replace('TO:', '').trim();
                 const msg   = parts[2]?.replace('MSG:', '').trim();
 
-                // Only show messages addressed TO me FROM my friend
+                // Show only messages TO me FROM my friend
                 if (to === myId && from === friendId) {
                     addMessage(msg, 'msg-friend');
                 }
             });
         })
-        .catch(err => console.error('Polling error:', err));
+        .catch(err => console.warn('Poll failed:', err));
     }
 
     // --------------------------------------------------------
