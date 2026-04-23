@@ -4,11 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2P Secure Chat</title>
-    
-    <!-- Link external CSS -->
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Load PeerJS and external Script (defer ensures they load in order) -->
     <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
     <script src="script.js" defer></script>
 </head>
@@ -21,23 +17,32 @@
 
         <!-- SCREEN 1: Setup & Connection -->
         <div id="setup-screen">
-            <div class="card">
-                <h3>Your Connection ID</h3>
-                <p class="subtitle">Share this ID with your friend.</p>
-                <div class="id-box" id="my-id" title="Click to copy">Generating...</div>
+            
+            <!-- Step 1: Set Custom ID -->
+            <div class="card" id="step-1">
+                <h3>1. Choose Your ID</h3>
+                <p class="subtitle">Enter a custom 4-letter ID for testing (e.g., user1).</p>
+                <div class="input-group">
+                    <input type="text" id="custom-id-input" placeholder="Your ID..." autocomplete="off">
+                    <button id="set-id-btn">Set</button>
+                </div>
             </div>
 
-            <div class="card">
-                <h3>Connect to Friend</h3>
-                <input type="text" id="friend-id" placeholder="Paste their ID here" autocomplete="off">
-                <button id="connect-btn" disabled>Connect</button>
+            <!-- Step 2: Connect to Friend -->
+            <div class="card" id="step-2" style="display: none;">
+                <h3>2. Connect to Friend</h3>
+                <p class="subtitle">Your ID is locked in as: <strong id="display-my-id" style="color: var(--primary);"></strong></p>
+                <div class="input-group">
+                    <input type="text" id="friend-id" placeholder="Friend's ID..." autocomplete="off">
+                    <button id="connect-btn" disabled>Connect</button>
+                </div>
             </div>
+
         </div>
 
         <!-- SCREEN 2: Chat Interface -->
         <div id="chat-screen">
             <div id="messages-container"></div>
-            
             <div class="input-area">
                 <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
                 <button id="send-btn">Send</button>

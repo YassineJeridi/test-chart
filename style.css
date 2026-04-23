@@ -18,8 +18,11 @@ body { background-color: var(--bg); display: flex; justify-content: center; alig
 .card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
 .card h3 { font-size: 1rem; margin-bottom: 12px; color: #374151; }
 .subtitle { font-size: 0.85rem; color: #6b7280; margin-bottom: 10px; }
-.id-box { background: #f3f4f6; padding: 12px; border-radius: 8px; text-align: center; font-family: monospace; font-size: 1.2rem; font-weight: bold; color: var(--primary); cursor: pointer; border: 1px dashed #9ca3af; transition: background 0.2s; }
-.id-box:hover { background: #e5e7eb; }
+
+/* Input Groups */
+.input-group { display: flex; gap: 10px; margin-top: 10px; }
+.input-group input { margin-top: 0; }
+.input-group button { margin-top: 0; width: auto; padding: 0 25px; }
 
 /* Inputs & Buttons */
 input[type="text"] { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 8px; outline: none; font-size: 1rem; transition: border 0.2s; background: #f9fafb; }

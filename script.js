@@ -1,59 +1,74 @@
-// Ensure everything runs after the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
     
     // DOM Elements
     const screens = { setup: document.getElementById('setup-screen'), chat: document.getElementById('chat-screen') };
     const els = {
-        myId: document.getElementById('my-id'), friendId: document.getElementById('friend-id'),
-        connectBtn: document.getElementById('connect-btn'), sendBtn: document.getElementById('send-btn'),
-        msgInput: document.getElementById('message-input'), msgContainer: document.getElementById('messages-container'),
-        statusDot: document.getElementById('status-dot')
+        customIdInput: document.getElementById('custom-id-input'), setIdBtn: document.getElementById('set-id-btn'),
+        step1: document.getElementById('step-1'), step2: document.getElementById('step-2'), displayMyId: document.getElementById('display-my-id'),
+        friendId: document.getElementById('friend-id'), connectBtn: document.getElementById('connect-btn'), 
+        sendBtn: document.getElementById('send-btn'), msgInput: document.getElementById('message-input'), 
+        msgContainer: document.getElementById('messages-container'), statusDot: document.getElementById('status-dot')
     };
 
-    // Initialize PeerJS with Google STUN servers for better connectivity
-    const peer = new Peer({
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        }
-    }); 
-    
+    let peer;
     let chatConnection;
 
-    // 1. PeerJS generated our ID
-    peer.on('open', (id) => {
-        els.myId.innerText = id;
-        els.connectBtn.disabled = false;
-        els.statusDot.classList.add('status-ready');
-    });
+    // 1. Set Custom ID & Initialize PeerJS
+    els.setIdBtn.onclick = () => {
+        const myCustomId = els.customIdInput.value.trim().toLowerCase();
+        if (!myCustomId) return alert("Please enter an ID");
 
-    // 2. Global Error handling
-    peer.on('error', (err) => {
-        alert(`Network Error: ${err.type}. Check your connection.`);
-        resetConnectButton();
-        console.error(err);
-    });
+        els.setIdBtn.innerText = "Setting...";
+        els.setIdBtn.disabled = true;
 
-    // 3. Listen for incoming connections
-    peer.on('connection', (conn) => {
-        chatConnection = conn;
-        chatConnection.on('open', () => openChatInterface());
-    });
+        // Initialize PeerJS with the CUSTOM ID
+        peer = new Peer(myCustomId, {
+            config: {
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            }
+        }); 
 
-    // 4. Initiate connection to friend
+        // Successfully registered custom ID
+        peer.on('open', (id) => {
+            els.step1.style.display = 'none';
+            els.step2.style.display = 'block';
+            els.displayMyId.innerText = id;
+            els.connectBtn.disabled = false;
+            els.statusDot.classList.add('status-ready');
+        });
+
+        // Error handling (e.g., ID already taken)
+        peer.on('error', (err) => {
+            if (err.type === 'unavailable-id') {
+                alert("That ID is already taken by someone else right now. Choose another.");
+            } else {
+                alert(`Network Error: ${err.type}`);
+            }
+            els.setIdBtn.innerText = "Set";
+            els.setIdBtn.disabled = false;
+            resetConnectButton();
+        });
+
+        // Listen for incoming connections
+        peer.on('connection', (conn) => {
+            chatConnection = conn;
+            chatConnection.on('open', () => openChatInterface());
+        });
+    };
+
+    // 2. Initiate connection to friend
     els.connectBtn.onclick = () => {
-        const friendId = els.friendId.value.trim();
-        if (!friendId) return alert("Please enter an ID");
+        const friendId = els.friendId.value.trim().toLowerCase();
+        if (!friendId) return alert("Please enter your friend's ID");
         
         els.connectBtn.innerText = "Connecting...";
         els.connectBtn.disabled = true;
         
-        // Connect reliably
         chatConnection = peer.connect(friendId, { reliable: true });
         
-        // Timeout handling for strict firewalls
         const connectionTimeout = setTimeout(() => {
             if (screens.chat.style.display !== 'flex') {
                 alert("Connection timed out! A firewall or VPN is blocking the P2P connection.");
@@ -62,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 10000);
         
         chatConnection.on('open', () => {
-            clearTimeout(connectionTimeout); // Cancel timeout
+            clearTimeout(connectionTimeout);
             openChatInterface();
         });
 
@@ -77,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.connectBtn.disabled = false;
     }
 
-    // 5. Open chat UI and setup message listeners
+    // 3. Open chat UI and setup message listeners
     function openChatInterface() {
         screens.setup.style.display = 'none';
         screens.chat.style.display = 'flex';
@@ -94,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 6. Send message logic
+    // 4. Send message logic
     function sendMessage() {
         const text = els.msgInput.value.trim();
         if (!text) return;
@@ -109,21 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendMessage();
     });
 
-    // Event listener for copying ID
-    els.myId.addEventListener('click', () => {
-        const idText = els.myId.innerText;
-        if (idText === "Generating...") return;
-        navigator.clipboard.writeText(idText).then(() => {
-            alert("ID Copied to clipboard!");
-        });
-    });
-
     // UI Helper: Render message bubble
     function addMessage(text, typeClass) {
         const div = document.createElement('div');
         div.className = `message ${typeClass}`;
         div.innerText = text;
         els.msgContainer.appendChild(div);
-        els.msgContainer.scrollTop = els.msgContainer.scrollHeight; // Auto-scroll
+        els.msgContainer.scrollTop = els.msgContainer.scrollHeight;
     }
 });
