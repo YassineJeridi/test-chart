@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Serverless P2P Chat</title>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; }
+        .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+        #chat-box { height: 200px; overflow-y: auto; border: 1px solid #aaa; padding: 10px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>Serverless Chat Test</h2>
+
+    <div class="box">
+        <p><strong>Your ID:</strong> <span id="my-id">Generating...</span></p>
+    </div>
+
+    <div class="box">
+        <h3>Connect to a Friend</h3>
+        <input type="text" id="friend-id" placeholder="Paste friend's ID here">
+        <button id="connect-btn">Connect</button>
+    </div>
+
+    <div class="box">
+        <h3>Chat Room</h3>
+        <div id="chat-box"></div>
+        <input type="text" id="message-input" placeholder="Type a message..." disabled>
+        <button id="send-btn" disabled>Send</button>
+    </div>
+
+    <!-- Import PeerJS from a CDN -->
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <script>
+// 1. Initialize PeerJS
+const peer = new Peer(); 
+let chatConnection;
+
+// 2. Display your ID when generated
+peer.on('open', (id) => {
+    document.getElementById('my-id').innerText = id;
+});
+
+// 3. Listen for incoming connections (when a friend connects to you)
+peer.on('connection', (conn) => {
+    chatConnection = conn;
+    setupChat();
+});
+
+// 4. Connect to a friend (when you click Connect)
+document.getElementById('connect-btn').onclick = () => {
+    const friendId = document.getElementById('friend-id').value;
+    chatConnection = peer.connect(friendId);
+    
+    // Wait for the connection to open
+    chatConnection.on('open', () => {
+        setupChat();
+    });
+};
+
+// 5. Function to handle sending/receiving messages
+function setupChat() {
+    alert("Connected! You can now chat.");
+    document.getElementById('message-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+
+    // Listen for incoming messages
+    chatConnection.on('data', (data) => {
+        displayMessage("Friend: " + data);
+    });
+
+    // Send a message
+    document.getElementById('send-btn').onclick = () => {
+        const msg = document.getElementById('message-input').value;
+        chatConnection.send(msg);          // Send to friend
+        displayMessage("You: " + msg);     // Show on your screen
+        document.getElementById('message-input').value = ''; // Clear input
+    };
+}
+
+// Helper to write text to the chat box
+function displayMessage(text) {
+    const chatBox = document.getElementById('chat-box');
+    chatBox.innerHTML += `<div>${text}</div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+    </script>
+</body>
+</html>
