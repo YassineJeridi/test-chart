@@ -45,7 +45,11 @@ peer.on('open', (id) => {
 // 3. Listen for incoming connections (when a friend connects to you)
 peer.on('connection', (conn) => {
     chatConnection = conn;
-    setupChat();
+    
+    // FIX: The receiver must also wait for the connection to fully open
+    chatConnection.on('open', () => {
+        setupChat();
+    });
 });
 
 // 4. Connect to a friend (when you click Connect)
@@ -53,7 +57,7 @@ document.getElementById('connect-btn').onclick = () => {
     const friendId = document.getElementById('friend-id').value;
     chatConnection = peer.connect(friendId);
     
-    // Wait for the connection to open
+    // The sender waits for the connection to open
     chatConnection.on('open', () => {
         setupChat();
     });
@@ -61,7 +65,9 @@ document.getElementById('connect-btn').onclick = () => {
 
 // 5. Function to handle sending/receiving messages
 function setupChat() {
-    alert("Connected! You can now chat.");
+    // FIX: Replaced alert() with an in-chat notification so it doesn't freeze the browser
+    displayMessage("<em>System: Connected! You can now chat.</em>");
+    
     document.getElementById('message-input').disabled = false;
     document.getElementById('send-btn').disabled = false;
 
@@ -70,9 +76,11 @@ function setupChat() {
         displayMessage("Friend: " + data);
     });
 
-    // Send a message
+    // Send a message when button is clicked
     document.getElementById('send-btn').onclick = () => {
         const msg = document.getElementById('message-input').value;
+        if (msg.trim() === "") return; // Prevent sending empty messages
+        
         chatConnection.send(msg);          // Send to friend
         displayMessage("You: " + msg);     // Show on your screen
         document.getElementById('message-input').value = ''; // Clear input
@@ -82,7 +90,7 @@ function setupChat() {
 // Helper to write text to the chat box
 function displayMessage(text) {
     const chatBox = document.getElementById('chat-box');
-    chatBox.innerHTML += `<div>${text}</div>`;
+    chatBox.innerHTML += `<div style="margin-bottom: 5px;">${text}</div>`;
     chatBox.scrollTop = chatBox.scrollHeight;
 }
     </script>
