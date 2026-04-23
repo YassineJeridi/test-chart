@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2P Secure Chat</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
+
+    <!-- PeerJS loads first, WITHOUT defer -->
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <!-- Your script loads after PeerJS, WITH defer -->
     <script src="script.js" defer></script>
 </head>
 <body>
@@ -18,7 +21,6 @@
         <!-- SCREEN 1: Setup & Connection -->
         <div id="setup-screen">
             
-            <!-- Step 1: Set Custom ID -->
             <div class="card" id="step-1">
                 <h3>1. Choose Your ID</h3>
                 <p class="subtitle">Enter a custom 4-letter ID for testing (e.g., user1).</p>
@@ -28,7 +30,6 @@
                 </div>
             </div>
 
-            <!-- Step 2: Connect to Friend -->
             <div class="card" id="step-2" style="display: none;">
                 <h3>2. Connect to Friend</h3>
                 <p class="subtitle">Your ID is locked in as: <strong id="display-my-id" style="color: var(--primary);"></strong></p>
